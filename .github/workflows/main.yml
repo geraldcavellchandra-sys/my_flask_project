@@ -1,0 +1,65 @@
+name: Python API CI/CD
+
+# Trigger the workflow on push or pull request events
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # JOB 1: INTEGRATION (CI)
+  # Run linting and tests. If this fails, the pipeline stops.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'   # Caches dependencies to speed up future runs
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings.
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run Unit Tests
+      run: |
+        pytest test.py
+
+  # JOB 2: DELIVERY (CD)
+  # This job simulates deployment. It only runs if 'integration' passes
+  # AND if we are pushing to the 'main' branch (not on PRs).
+  delivery:
+    needs: integration
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker Image
+      run: |
+        docker build -t my-api:latest .
+        echo "Docker image built successfully."
+
+    - name: Deploy to Production (Simulation)
+      run: |
+        echo "Starting deployment..."
+        echo "Pushing container to registry..."
+        echo "Updating container orchestration..."
+        echo "Deployment complete! API is live."
